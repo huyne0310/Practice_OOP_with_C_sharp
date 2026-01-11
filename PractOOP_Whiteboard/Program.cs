@@ -77,11 +77,17 @@ namespace Whiteboard
                 throw new InvalidOperationException();
             }
             
-            redoStack.Push(undoStack.Peek());
-            strokes.Remove(undoStack.Peek());
+            //redoStack.Push(undoStack.Peek());
+            //strokes.Remove(undoStack.Peek());
             
-            _log.Log("Undo add " + undoStack.Peek().Id);
-            undoStack.Pop();
+            //_log.Log("Undo add " + undoStack.Peek().Id);
+            //undoStack.Pop();
+
+            var tmp = undoStack.Pop();
+            redoStack.Push(tmp);
+            strokes.Remove(tmp);
+            _log.Log("Undo add " + tmp.Id);
+
         }
 
         public void Redo()
@@ -92,12 +98,18 @@ namespace Whiteboard
             }
             
             
-            undoStack.Push (redoStack.Peek());
-            strokes.Add (redoStack.Peek());
+            //undoStack.Push (redoStack.Peek());
+            //strokes.Add (redoStack.Peek());
 
-            _log.Log("Redo add " + redoStack.Peek().Id);
+            //_log.Log("Redo add " + redoStack.Peek().Id);
 
-            redoStack.Pop();
+            //redoStack.Pop();
+
+            var tmp = redoStack.Pop();
+            undoStack.Push(tmp);
+            strokes.Add(tmp);
+            _log.Log("Redo add " + tmp.Id);
+
         }
 
         public IReadOnlyList<Stroke> GetStrokes()
