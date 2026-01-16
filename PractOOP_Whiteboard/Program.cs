@@ -2,133 +2,137 @@
 using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 
-namespace Whiteboard
+public class Stroke
 {
-    public class Stroke
+    public int Id {  get; private set; }
+    public string Color { get; private set; }
+    public int Thickness { get; private set; }
+    public string Content { get; private set; }
+
+    public Stroke(int id, string color, int thickness, string content)
     {
-        public int Id {  get; private set; }
-        public string Color { get; private set; }
-        public int Thickness { get; private set; }
-        public string Content { get; private set; }
-
-        public Stroke(int id, string color, int thickness, string content)
+        if (id <= 0)
         {
-            if (id <= 0)
-            {
-                throw new ArgumentException(nameof(id));
-            }
-
-            else if (String.IsNullOrEmpty(color))
-            {
-                throw new ArgumentException(nameof(color));
-            }
-            else if (thickness <= 0)
-            {
-                throw new ArgumentException(nameof(thickness));
-            }
-            else if (String.IsNullOrEmpty(content)) { 
-                throw new ArgumentException(nameof(content));
-            }
-
-            Id = id;
-            Color = color;
-            Thickness = thickness;
-            Content = content;
+            throw new ArgumentException(nameof(id));
         }
+
+        else if (String.IsNullOrEmpty(color))
+        {
+            throw new ArgumentException(nameof(color));
+        }
+        else if (thickness <= 0)
+        {
+            throw new ArgumentException(nameof(thickness));
+        }
+        else if (String.IsNullOrEmpty(content)) { 
+            throw new ArgumentException(nameof(content));
+        }
+
+        Id = id;
+        Color = color;
+        Thickness = thickness;
+        Content = content;
+    }
+}
+
+public interface ILogger
+{
+    void Log(string message);
+}
+
+public interface ICommand
+{
+    void Execute();
+    void Undo();
+}
+
+public class Whiteboard
+{
+    public List<Stroke> strokes = new();
+    public Stack<ICommand> UndoStack = new();
+    public Stack<ICommand> RedoStack = new();
+    public ILogger _log;
+
+    public Whiteboard(ILogger log)
+    {
+        _log = log;
     }
 
-    public interface ILogger
+    public void ExcuteCommand(ICommand cmd)
     {
-        void Log(string message);
+        cmd.Execute();
+        UndoStack.Push(cmd);
+        RedoStack.Clear();
     }
 
-    class ConsoleLogger : ILogger
+    public void Undo()
     {
-        public void Log(string message) { 
-            Console.WriteLine( "[Log] " + message);
-        }
+        if (UndoStack.Count() == 0) throw new InvalidOperationException("Nothing to Undo");
+        var tmp = UndoStack.Pop();
+        RedoStack.Push(tmp);
+        tmp.Undo();
     }
-
-    public class WhiteBoard
+    public void Redo()
     {
-        private List<Stroke> strokes = new List<Stroke>();
-        private Stack<Stroke> undoStack = new Stack<Stroke>();
-        private Stack<Stroke> redoStack = new Stack<Stroke>();
-        private readonly ILogger _log;
-
-        public WhiteBoard(ILogger log)
-        {
-            _log = log ?? throw new ArgumentNullException(nameof(log));
-        }
-
-        public void AddStroke(Stroke tmp)
-        {
-            
-            strokes.Add(tmp);
-            undoStack.Push(tmp);
-            redoStack.Clear();
-            _log.Log("Added stroke " + tmp.Id);
-        }
-
-        public void Undo()
-        {
-            if (undoStack.Count() == 0)
-            {
-                throw new InvalidOperationException();
-            }
-            
-            //redoStack.Push(undoStack.Peek());
-            //strokes.Remove(undoStack.Peek());
-            
-            //_log.Log("Undo add " + undoStack.Peek().Id);
-            //undoStack.Pop();
-
-            var tmp = undoStack.Pop();
-            redoStack.Push(tmp);
-            strokes.Remove(tmp);
-            _log.Log("Undo add " + tmp.Id);
-
-        }
-
-        public void Redo()
-        {
-            if (redoStack.Count() == 0)
-            {
-                throw new InvalidOperationException();
-            }
-            
-            
-            //undoStack.Push (redoStack.Peek());
-            //strokes.Add (redoStack.Peek());
-
-            //_log.Log("Redo add " + redoStack.Peek().Id);
-
-            //redoStack.Pop();
-
-            var tmp = redoStack.Pop();
-            undoStack.Push(tmp);
-            strokes.Add(tmp);
-            _log.Log("Redo add " + tmp.Id);
-
-        }
-
-        public IReadOnlyList<Stroke> GetStrokes()
-        {
-            return new List<Stroke>(strokes);
-        }
-
+        if (RedoStack.Count() == 0) throw new InvalidOperationException("Nothing to Redo");
+        var tmp = RedoStack.Pop();
+        UndoStack.Push(tmp);
+        tmp.Execute();
     }
-
-
-    class Program
+    internal void AddStroke_Internal(Stroke _stroke)
     {
-        static void Main(string[] args)
-        {
-            ILogger logger = new ConsoleLogger();
-            var _Strokes = new Stroke(1, "blue", 3, "A to B");
-            var workspace = new WhiteBoard(logger);
-            workspace.AddStroke(_Strokes);
-            workspace.Undo();
-        }
+        strokes.Add(_stroke);
+        _log.Log($"Added stroke: {_stroke.Id}");
+    }
+    internal void RemoveStroke_Internal(Stroke _stroke)
+    {
+        strokes.Remove(_stroke);
+        _log.Log($"Removed stroke: {_stroke.Id}");
+    }
+    public IReadOnlyList<Stroke> GetStroke()
+    {
+        return strokes.AsReadOnly();
+    }
+}
+
+public class AddStrokes : ICommand
+{
+    private readonly Whiteboard _board;
+    private readonly Stroke _stroke;
+
+    public AddStrokes(Whiteboard board, Stroke stroke)
+    {
+        _board = board;
+        _stroke = stroke;
+    }
+    public void Execute() { 
+        _board.AddStroke_Internal(_stroke);
+    }
+    public void Undo()
+    {
+        _board.RemoveStroke_Internal(_stroke) ;
+    }
+}
+
+public class ConsoleLogger : ILogger {
+    public void Log(string message) { 
+        Console.WriteLine(message);
+    }
+}
+
+class Program
+{
+    static void Main(string[] args)
+    {
+        ILogger loger = new ConsoleLogger();
+        var board = new Whiteboard(loger);
+
+        var stroke = new Stroke(1, "blue", 3, "A to B");
+        var addStroke = new AddStrokes(board, stroke);
+
+        board.ExcuteCommand(addStroke);
+        board.Undo();
+        board.Redo();
+
     }
 }

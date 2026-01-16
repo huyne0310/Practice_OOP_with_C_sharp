@@ -1,5 +1,4 @@
 ﻿using Xunit;
-using Whiteboard;
 
 namespace Test_Whiteboard
 {
@@ -42,95 +41,78 @@ namespace Test_Whiteboard
     public class FakeILogger : ILogger
     {
         public bool WasCalled { get; private set; }
-        public string mess {  get; private set; }
+        public string mess { get; private set; }
 
-        public void Log(string messenger)
+        public void Log (string message)
         {
-            mess = messenger;
             WasCalled = true;
+            mess = message;
         }
-
     }
-
-    public class Test_WhiteBoard
+    
+    public class Test_Whiteboard
     {
-        [Theory]
-        [InlineData(1, "red", 3, "A to B")]
-        [InlineData(2, "blue", 5, "A to B")]
-        [InlineData(3, "red", 3, "C to D")]
-        [InlineData(4, "red", 3, "B to C")]
-        [InlineData(5, "red", 3, "D to E")]
-        public void AddStroke_Valid_Add(int id, string color, int thickness, string content)
+        [Fact]
+        public void AddStroke_Valid_Add()
         {
-            var log = new FakeILogger();
-            var _stroke = new Stroke(id, color, thickness, content);
-            var whiteboard = new WhiteBoard(log);
+            var logger = new FakeILogger();
+            var board = new Whiteboard(logger);
+            var _stroke = new Stroke(1, "blue", 2, "A to B");
+            
+            var addcmd = new AddStrokes(board, _stroke);
+            board.ExcuteCommand(addcmd);
 
-            whiteboard.AddStroke(_stroke);
-            Assert.Equal(1, whiteboard.GetStrokes().Count());
+            Assert.True(logger.WasCalled);
+            Assert.Equal(1, board.GetStroke().Count());
+
+        }
+        [Fact]
+        public void UndoStroke_Valid_Undo()
+        {
+            var logger = new FakeILogger();
+            var board = new Whiteboard(logger);
+            var _stroke = new Stroke(2, "blue", 5, "B to C");
+            var addCmd = new AddStrokes(board, _stroke);
+            board.ExcuteCommand(addCmd);
+            board.Undo();
+
+            Assert.True(logger.WasCalled);
+            Assert.Equal(0, board.GetStroke().Count());
+
+        }
+        [Fact]
+        public void UndoStroke_Invalid_ThrowEx()
+        {
+            var logger = new FakeILogger();
+            var board = new Whiteboard(logger);
+            
+            Assert.Throws<InvalidOperationException>(() =>  board.Undo());
         }
 
         [Fact]
-        public void AddStrokeLog_Valid_CallLog()
+        public void RedoStroke_Valid_Undo()
         {
-            var log = new FakeILogger();
-            var _stroke = new Stroke(1, "red", 3, "A to B");
-            var whiteboard = new WhiteBoard(log);
+            var logger = new FakeILogger();
+            var board = new Whiteboard(logger);
+            var _stroke = new Stroke(2, "blue", 5, "B to C");
+            var addCmd = new AddStrokes(board, _stroke);
+            board.ExcuteCommand(addCmd);
+            board.Undo();
+            board.Redo();
 
-            whiteboard.AddStroke(_stroke);
+            Assert.True(logger.WasCalled);
+            Assert.Equal(1, board.GetStroke().Count());
 
-            Assert.True(log.WasCalled);
-        }
-
-        [Theory]
-        [InlineData(1, "red", 3, "A to B")]
-        [InlineData(2, "blue", 5, "A to B")]
-        [InlineData(3, "red", 3, "C to D")]
-        [InlineData(4, "red", 3, "B to C")]
-        [InlineData(5, "red", 3, "D to E")]
-
-        public void Undo_Valid_undo(int id, string color, int thickness, string content)
-        {
-            var log = new FakeILogger();
-            var _stroke = new Stroke(id, color, thickness, content);
-            var whiteboard = new WhiteBoard(log);
-            whiteboard.AddStroke(_stroke);
-            whiteboard.Undo();
-            Assert.Equal(0, whiteboard.GetStrokes().Count());
         }
         [Fact]
-        public void Undo_Invalid_ThrowEx()
+        public void RedoStroke_Invalid_ThrowEx()
         {
-            var log = new FakeILogger();
-            var whiteboard = new WhiteBoard(log);
-
-            Assert.Throws<InvalidOperationException>(() => whiteboard.Undo());
+            var logger = new FakeILogger();
+            var board = new Whiteboard(logger);
+            var _stroke = new Stroke(2, "blue", 5, "B to C");
+            var addCmd = new AddStrokes(board, _stroke);
+            board.ExcuteCommand(addCmd);
+            Assert.Throws<InvalidOperationException>(() => board.Redo());
         }
-
-        [Theory]
-        [InlineData(1, "red", 3, "A to B")]
-        [InlineData(2, "blue", 5, "A to B")]
-        [InlineData(3, "red", 3, "C to D")]
-        [InlineData(4, "red", 3, "B to C")]
-        [InlineData(5, "red", 3, "D to E")]
-        public void Redo_Valid_redo(int id, string color, int thickness, string content)
-        {
-            var log = new FakeILogger();
-            var _stroke = new Stroke(id, color, thickness, content);
-            var whiteboard = new WhiteBoard(log);
-            whiteboard.AddStroke(_stroke);
-            whiteboard.Undo();
-            whiteboard.Redo();
-            Assert.Equal(1, whiteboard.GetStrokes().Count());
-        }
-
-        [Fact]
-        public void Redo_Invalid_ThrowEx() {
-            var log = new FakeILogger();
-            var _stroke = new Stroke(1, "red", 3, "A to B");
-            var whiteboard = new WhiteBoard(log);
-            whiteboard.AddStroke(_stroke);
-            Assert.Throws<InvalidOperationException>(() => whiteboard.Redo());
-        }
-    }
+    }  
 }
