@@ -51,17 +51,7 @@ public interface ICommand
 
 public class Lesson
 {
-
-    public int _id {  get; private set; }
-    public string _name {  get; private set; }
     private List<Activity> activities = new();
-
-    public Lesson(int id, string name)
-    {
-        _id = id;
-        _name = name;
-    }
-
     
     internal void AddActivity_In(Activity act)
     {
@@ -106,13 +96,17 @@ public class LessonManager
         RedoStack.Clear();
     }
     public void Undo() { 
+        if (UndoStack.Count() == 0) {  return; }
         
         var tmp = UndoStack.Pop();
+        tmp.Undo();
         RedoStack.Push(tmp);
     }
     public void Redo()
     {
+        if (RedoStack.Count() == 0) { return; }
         var tmp = RedoStack.Pop();
+        tmp.Excute();
         UndoStack.Push(tmp);
     }
 }
@@ -172,6 +166,21 @@ class Program
 {
     static void Main(string[] args)
     {
+        Ilogger log = new ConsoleLogger();
+        var act1 = new Activity(1, "first", 5);
+        var act2 = new Activity(2, "second", 10);
 
+        var _lesson = new Lesson();
+        var Addcmd = new AddActivityCmd(log, _lesson, act1);
+        var Addcmd2 = new AddActivityCmd(log, _lesson, act2);
+
+        var manager = new LessonManager();
+        manager.Excute(Addcmd);
+        manager.Excute(Addcmd2);
+
+        manager.Undo();
+        manager.Undo();
+        manager.Redo();
+        manager.Undo();
     }
 }
